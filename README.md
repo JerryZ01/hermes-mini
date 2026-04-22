@@ -96,13 +96,7 @@ hermes-mini/
 └── requirements.txt
 ```
 
----
 
-## 配套视频（待上线）
-
-每个章节配有中文讲解视频（B站），关注 [JerryZ01](https://github.com/JerryZ01) 获取更新通知。
-
----
 
 ## License
 
