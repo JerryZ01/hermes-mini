@@ -14,7 +14,12 @@ Agent Loop — Agent 的心脏
 
 import json
 import time
+from pathlib import Path
 from typing import Literal, Optional
+from dotenv import load_dotenv
+
+# 自动加载 .env 文件（如果存在）
+load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
 # ============================================================
 # LLM 调用层（支持 GLM / Qwen / OpenAI 三种后端）
@@ -31,79 +36,91 @@ def make_llm_call(
     api_key: Optional[str] = None,
 ) -> str:
     """
-    通用的 LLM 调用接口。
+    通用的 LLM 调用接口（带自动重试）。
 
     Args:
         messages: [{"role": "user/assistant/system", "content": "..."}]
-        provider: "glm" | "qwen" | "openai"
+        provider: "minimax" | "glm" | "qwen" | "openai"
         model:   模型名称
-        api_key: API Key（也可通过环境变量 GLM_API_KEY / QWEN_API_KEY 设置）
+        api_key: API Key（也可通过环境变量设置）
 
-    Returns:
-        LLM 的原始输出字符串
+    遇到 500/503/429 错误时自动重试（最多 3 次，间隔 1 秒）。
     """
-    import os
+    import os, time
 
-    if provider == "minimax":
-        import requests
+    last_error = None
+    for attempt in range(3):
+        try:
+            if provider == "minimax":
+                import requests
 
-        api_key = api_key or os.environ.get("HERMES_MINIMAX_API_KEY", "")
-        minimax_url = os.environ.get(
-            "HERMES_MINIMAX_BASE_URL",
-            "http://1505824313958960.cn-hangzhou.pai-eas.aliyuncs.com/api/predict/minimax_m2/v1/chat/completions",
-        )
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
-        payload = {"model": model or "minimax", "messages": messages}
-        resp = requests.post(minimax_url, headers=headers, json=payload, timeout=60)
-        resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
+                api_key_str = api_key or os.environ.get("HERMES_MINIMAX_API_KEY", "")
+                minimax_url = os.environ.get(
+                    "HERMES_MINIMAX_BASE_URL",
+                    "http://1505824313958960.cn-hangzhou.pai-eas.aliyuncs.com/api/predict/minimax_m2/v1/chat/completions",
+                )
+                headers = {
+                    "Authorization": f"Bearer {api_key_str}",
+                    "Content-Type": "application/json",
+                }
+                payload = {"model": model or "minimax", "messages": messages}
+                resp = requests.post(minimax_url, headers=headers, json=payload, timeout=60)
+                resp.raise_for_status()
+                return resp.json()["choices"][0]["message"]["content"]
 
-    elif provider == "glm":
-        import requests
+            elif provider == "glm":
+                import requests
 
-        api_key = api_key or os.environ.get("GLM_API_KEY", "")
-        url = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
-        payload = {"model": model, "messages": messages}
-        resp = requests.post(url, headers=headers, json=payload, timeout=60)
-        resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
+                api_key_str = api_key or os.environ.get("GLM_API_KEY", "")
+                url = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+                headers = {
+                    "Authorization": f"Bearer {api_key_str}",
+                    "Content-Type": "application/json",
+                }
+                payload = {"model": model, "messages": messages}
+                resp = requests.post(url, headers=headers, json=payload, timeout=60)
+                resp.raise_for_status()
+                return resp.json()["choices"][0]["message"]["content"]
 
-    elif provider == "qwen":
-        import requests
+            elif provider == "qwen":
+                import requests
 
-        api_key = api_key or os.environ.get("QWEN_API_KEY", "")
-        url = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
-        payload = {"model": model, "messages": messages}
-        resp = requests.post(url, headers=headers, json=payload, timeout=60)
-        resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
+                api_key_str = api_key or os.environ.get("QWEN_API_KEY", "")
+                url = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+                headers = {
+                    "Authorization": f"Bearer {api_key_str}",
+                    "Content-Type": "application/json",
+                }
+                payload = {"model": model, "messages": messages}
+                resp = requests.post(url, headers=headers, json=payload, timeout=60)
+                resp.raise_for_status()
+                return resp.json()["choices"][0]["message"]["content"]
 
-    elif provider == "openai":
-        from openai import OpenAI
+            elif provider == "openai":
+                from openai import OpenAI
 
-        client = OpenAI(api_key=api_key or os.environ.get("OPENAI_API_KEY", ""))
-        # 把 role 映射成 OpenAI 格式
-        openai_messages = [
-            {"role": m["role"], "content": m["content"]} for m in messages
-        ]
-        response = client.chat.completions.create(
-            model=model, messages=openai_messages
-        )
-        return response.choices[0].message.content
+                client = OpenAI(api_key=api_key or os.environ.get("OPENAI_API_KEY", ""))
+                openai_messages = [
+                    {"role": m["role"], "content": m["content"]} for m in messages
+                ]
+                response = client.chat.completions.create(
+                    model=model, messages=openai_messages
+                )
+                return response.choices[0].message.content
 
-    else:
-        raise ValueError(f"不支持的 provider: {provider}")
+            else:
+                raise ValueError(f"不支持的 provider: {provider}")
+
+        except requests.exceptions.HTTPError as e:
+            status = e.response.status_code if e.response is not None else 0
+            if status in (500, 502, 503, 429):
+                last_error = e
+                if attempt < 2:
+                    time.sleep(1.5 ** attempt)
+                    continue
+            raise
+
+    raise last_error or Exception("LLM 调用失败")
 
 
 # ============================================================
