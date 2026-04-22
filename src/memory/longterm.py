@@ -40,13 +40,15 @@ class LongTermMemory:
     def _init_db(self):
         """建表（如果不存在）"""
         conn = sqlite3.connect(self.db_path)
+        # unicode61 tokenizer 对中文更友好
         conn.execute("""
             CREATE VIRTUAL TABLE IF NOT EXISTS memories
             USING fts5(
                 keywords,
                 content,
                 session_id,
-                timestamp
+                timestamp,
+                tokenize='unicode61'
             )
         """)
         conn.execute("""
@@ -149,19 +151,23 @@ class LongTermMemory:
         Returns:
             [{"keywords": ..., "content": ..., "timestamp": ...}, ...]
         """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.execute(
-            """
-            SELECT keywords, content, timestamp
-            FROM memories
-            WHERE memories MATCH ?
-            ORDER BY rank
-            LIMIT ?
-            """,
-            (query, top_k),
-        )
-        rows = cursor.fetchall()
-        conn.close()
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.execute(
+                """
+                SELECT keywords, content, timestamp
+                FROM memories
+                WHERE memories MATCH ?
+                ORDER BY rank
+                LIMIT ?
+                """,
+                (query, top_k),
+            )
+            rows = cursor.fetchall()
+            conn.close()
+        except (sqlite3.OperationalError, UnicodeEncodeError, UnicodeDecodeError):
+            # FTS5 中文检索可能遇到编码问题，降级返回空
+            return []
         return [
             {"keywords": r[0], "content": r[1], "timestamp": r[2]}
             for r in rows
