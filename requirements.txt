@@ -1,0 +1,14 @@
+# Hermes-mini 依赖
+# 最小依赖原则：只引入绝对必要的包
+
+# HTTP 请求（LLM API 调用）
+requests>=2.28.0
+
+# Token 计数（WorkingMemory 上下文管理）
+tiktoken>=0.7.0
+
+# 可选：OpenAI SDK（如果使用 OpenAI 作为后端）
+# openai>=1.0.0
+
+# 可选：Telegram Bot SDK（如果启用 Telegram 网关）
+# python-telegram-bot>=20.0
