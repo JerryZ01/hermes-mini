@@ -1,0 +1,27 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.env
+.env.local
+*.log
+
+# 本地运行时产生的文件
+.hermes/
+*.db
+*.db-journal
+
+# IDE
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# 测试覆盖率
+.coverage
+htmlcov/
+.pytest_cache/
