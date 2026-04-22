@@ -64,7 +64,6 @@ pip install -r requirements.txt
 python -m src
 ```
 
-**默认使用 MiniMax M2（EAS）。** 切换模型只需修改 `HERMES_PROVIDER` 环境变量。
 
 ---
 
