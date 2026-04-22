@@ -9,6 +9,10 @@ import os
 import time
 from pathlib import Path
 
+# 自动加载项目根目录的 .env 文件（如果存在）
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).parent.parent / ".env")
+
 from .core.agent_loop import AgentLoop, make_llm_call, TOOL_REGISTRY
 from .memory import WorkingMemory, LongTermMemory, HonchoProfile
 from .skills import SkillGenerator, SkillLoader
