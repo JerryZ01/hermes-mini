@@ -7,6 +7,9 @@ requests>=2.28.0
 # Token 计数（WorkingMemory 上下文管理）
 tiktoken>=0.7.0
 
+# 自动加载 .env 环境变量文件
+python-dotenv>=1.0.0
+
 # 可选：OpenAI SDK（如果使用 OpenAI 作为后端）
 # openai>=1.0.0
 
